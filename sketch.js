@@ -1,6 +1,8 @@
 let frogs = [];
 const frogColors = ['#004b23', '#006400', '#007200', '#008000', '#38b000', '#70e000', '#9ef01a', '#ccff33'];
 let lastSpawnTime = 0; // 記錄上次增加青蛙的時間
+let missiles = [];     // 儲存飛彈的陣列
+let explosions = [];   // 儲存爆炸效果的陣列
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
@@ -26,6 +28,36 @@ function draw() {
     frog.display();
   }
 
+  // 繪製中心指向箭頭
+  drawPointerArrow();
+
+  // 更新與繪製爆炸效果
+  for (let i = explosions.length - 1; i >= 0; i--) {
+    explosions[i].update();
+    explosions[i].display();
+    if (explosions[i].isDone()) {
+      explosions.splice(i, 1);
+    }
+  }
+
+  // 更新與繪製飛彈，並偵測與青蛙的碰撞
+  for (let i = missiles.length - 1; i >= 0; i--) {
+    let m = missiles[i];
+    m.update();
+    m.display();
+    
+    for (let j = frogs.length - 1; j >= 0; j--) {
+      let f = frogs[j];
+      if (dist(m.pos.x, m.pos.y, f.pos.x, f.pos.y) < f.baseSize * 0.4) {
+        explosions.push(new Explosion(f.pos.x, f.pos.y)); // 產生爆炸
+        frogs.splice(j, 1); // 移除青蛙
+        m.dead = true;      // 標記飛彈銷毀
+        break;
+      }
+    }
+    if (m.dead) missiles.splice(i, 1);
+  }
+
   // 繪製「青蛙派對」大型文字
   push();
   textAlign(CENTER, CENTER);
@@ -35,6 +67,27 @@ function draw() {
   noStroke();
   text("青蛙派對", width / 2, height / 2);
   pop();
+}
+
+function drawPointerArrow() {
+  let angle = atan2(mouseY - height / 2, mouseX - width / 2);
+  push();
+  translate(width / 2, height / 2);
+  rotate(angle);
+  
+  // 繪製箭頭樣式
+  fill(0, 255, 150);
+  noStroke();
+  rect(0, -10, 60, 20, 5); // 放大箭頭身部
+  triangle(60, -30, 60, 30, 100, 0); // 放大箭頭頭部
+  pop();
+}
+
+function mousePressed() {
+  if (mouseButton === LEFT) {
+    let angle = atan2(mouseY - height / 2, mouseX - width / 2);
+    missiles.push(new Missile(width / 2, height / 2, angle));
+  }
 }
 
 function windowResized() {
@@ -142,5 +195,60 @@ class Frog {
     fill(0);
     noStroke();
     ellipse(px, py, eyeSize * 0.4, eyeSize * 0.4);
+  }
+}
+
+class Missile {
+  constructor(x, y, angle) {
+    this.pos = createVector(x, y);
+    this.vel = p5.Vector.fromAngle(angle).mult(12); // 飛彈速度
+    this.dead = false;
+    this.history = []; // 用於儲存路徑產生拖曳效果
+  }
+
+  update() {
+    this.history.push(this.pos.copy());
+    if (this.history.length > 10) this.history.shift();
+    
+    this.pos.add(this.vel);
+    
+    // 檢查是否超出螢幕
+    if (this.pos.x < 0 || this.pos.x > width || this.pos.y < 0 || this.pos.y > height) {
+      this.dead = true;
+    }
+  }
+
+  display() {
+    // 繪製拖曳尾跡 (螢光藍色漸層)
+    for (let i = 0; i < this.history.length; i++) {
+      let alpha = map(i, 0, this.history.length, 20, 180);
+      fill(0, 255, 255, alpha);
+      noStroke();
+      circle(this.history[i].x, this.history[i].y, 10);
+    }
+    
+    // 繪製飛彈前端
+    fill(100, 255, 255);
+    circle(this.pos.x, this.pos.y, 14);
+  }
+}
+
+class Explosion {
+  constructor(x, y) {
+    this.pos = createVector(x, y);
+    this.timer = 255; // 消失倒數
+  }
+  update() {
+    this.timer -= 10;
+  }
+  display() {
+    push();
+    noStroke();
+    fill(255, 200, 50, this.timer);
+    circle(this.pos.x, this.pos.y, (255 - this.timer) * 1.5);
+    pop();
+  }
+  isDone() {
+    return this.timer <= 0;
   }
 }
