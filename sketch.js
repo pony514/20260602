@@ -3,28 +3,57 @@ const frogColors = ['#004b23', '#006400', '#007200', '#008000', '#38b000', '#70e
 let lastSpawnTime = 0; // 記錄上次增加青蛙的時間
 let missiles = [];     // 儲存飛彈的陣列
 let explosions = [];   // 儲存爆炸效果的陣列
+let score = 0;         // 分數
+let gameState = 'START'; // 遊戲狀態: START, PLAY, GAMEOVER
+let gameDuration = 30; // 遊戲時間 (秒)
+let startTime;         // 遊戲開始的毫秒數
+let difficultyMultiplier = 1.0; // 難度倍率
 
 function setup() {
   createCanvas(windowWidth, windowHeight);
-  // 初始化青蛙數量
-  for (let i = 0; i < 40; i++) {
+  resetGame();
+}
+
+function resetGame() {
+  frogs = [];
+  missiles = [];
+  explosions = [];
+  score = 0;
+  difficultyMultiplier = 1.0;
+  for (let i = 0; i < 30; i++) {
     frogs.push(new Frog());
   }
-  lastSpawnTime = millis(); // 初始化計時器
+  lastSpawnTime = millis();
 }
 
 function draw() {
+  if (gameState === 'START') {
+    drawStartScreen();
+  } else if (gameState === 'PLAY') {
+    runGame();
+  } else if (gameState === 'GAMEOVER') {
+    drawGameOverScreen();
+  }
+}
+
+function runGame() {
   background(10, 30, 10, 80); // 加入透明度 (0-255) 來產生拖曳效果
 
-  // 每三秒增加一隻青蛙
-  if (millis() - lastSpawnTime > 3000) {
+  // 隨時間增加難度
+  let timeElapsed = (millis() - startTime) / 1000;
+  let timeLeft = max(0, gameDuration - timeElapsed);
+  difficultyMultiplier = 1.0 + (timeElapsed / 10); // 每10秒速度增加一倍
+
+  // 隨時間加速產生青蛙 (從 3 秒縮短到最快 0.5 秒一隻)
+  let currentSpawnInterval = max(500, 3000 - (timeElapsed * 100));
+  if (millis() - lastSpawnTime > currentSpawnInterval) {
     frogs.push(new Frog());
     lastSpawnTime = millis();
   }
 
   for (let frog of frogs) {
     frog.checkCollision(frogs); // 檢查與其他青蛙的碰撞
-    frog.update();
+    frog.update(difficultyMultiplier);
     frog.display();
   }
 
@@ -50,6 +79,7 @@ function draw() {
       let f = frogs[j];
       if (dist(m.pos.x, m.pos.y, f.pos.x, f.pos.y) < f.baseSize * 0.4) {
         explosions.push(new Explosion(f.pos.x, f.pos.y)); // 產生爆炸
+        score += 10;        // 擊中得分
         frogs.splice(j, 1); // 移除青蛙
         m.dead = true;      // 標記飛彈銷毀
         break;
@@ -67,6 +97,54 @@ function draw() {
   noStroke();
   text("青蛙派對", width / 2, height / 2);
   pop();
+
+  // 繪製 UI (右上角分數與時間)
+  drawUI(timeLeft);
+
+  // 檢查遊戲結束
+  if (timeLeft <= 0) {
+    gameState = 'GAMEOVER';
+  }
+}
+
+function drawUI(timeLeft) {
+  push();
+  textAlign(RIGHT, TOP);
+  textSize(32);
+  textStyle(BOLD);
+  fill(0, 255, 255);
+  text(`SCORE: ${score}`, width - 20, 20);
+  fill(255, 100, 100);
+  text(`TIME: ${ceil(timeLeft)}s`, width - 20, 60);
+  pop();
+}
+
+function drawStartScreen() {
+  background(10, 30, 10);
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(60);
+  text("青蛙防衛戰", width / 2, height / 2 - 50);
+  textSize(24);
+  text("點擊滑鼠左鍵發射飛彈，保護中心區域", width / 2, height / 2 + 20);
+  fill(0, 255, 150);
+  text("點擊任何地方開始遊戲", width / 2, height / 2 + 80);
+}
+
+function drawGameOverScreen() {
+  fill(0, 0, 0, 10);
+  rect(0, 0, width, height);
+  push();
+  textAlign(CENTER, CENTER);
+  fill(255, 50, 50);
+  textSize(80);
+  text("GAME OVER", width / 2, height / 2 - 50);
+  fill(255);
+  textSize(40);
+  text(`最終得分: ${score}`, width / 2, height / 2 + 30);
+  textSize(20);
+  text("點擊畫面重新開始", width / 2, height / 2 + 100);
+  pop();
 }
 
 function drawPointerArrow() {
@@ -78,15 +156,23 @@ function drawPointerArrow() {
   // 繪製箭頭樣式
   fill(0, 255, 150);
   noStroke();
-  rect(0, -10, 60, 20, 5); // 放大箭頭身部
-  triangle(60, -30, 60, 30, 100, 0); // 放大箭頭頭部
+  rect(0, -15, 80, 30, 5); 
+  triangle(80, -40, 80, 40, 130, 0);
   pop();
 }
 
 function mousePressed() {
-  if (mouseButton === LEFT) {
-    let angle = atan2(mouseY - height / 2, mouseX - width / 2);
-    missiles.push(new Missile(width / 2, height / 2, angle));
+  if (gameState === 'START') {
+    gameState = 'PLAY';
+    startTime = millis();
+    resetGame();
+  } else if (gameState === 'PLAY') {
+    if (mouseButton === LEFT) {
+      let angle = atan2(mouseY - height / 2, mouseX - width / 2);
+      missiles.push(new Missile(width / 2, height / 2, angle));
+    }
+  } else if (gameState === 'GAMEOVER') {
+    gameState = 'START';
   }
 }
 
