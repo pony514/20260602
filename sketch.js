@@ -142,8 +142,24 @@ function drawGameOverScreen() {
   fill(255);
   textSize(40);
   text(`最終得分: ${score}`, width / 2, height / 2 + 30);
-  textSize(20);
-  text("點擊畫面重新開始", width / 2, height / 2 + 100);
+
+  // 再玩一次按鈕
+  let btnW = 200;
+  let btnH = 60;
+  let btnX = width / 2 - btnW / 2;
+  let btnY = height / 2 + 100;
+
+  // 檢查滑鼠是否在按鈕上（懸停變色）
+  if (mouseX > btnX && mouseX < btnX + btnW && mouseY > btnY && mouseY < btnY + btnH) {
+    fill(0, 200, 120);
+  } else {
+    fill(0, 255, 150);
+  }
+  rect(btnX, btnY, btnW, btnH, 15);
+
+  fill(0);
+  textSize(28);
+  text("再玩一次", width / 2, btnY + btnH / 2);
   pop();
 }
 
@@ -172,7 +188,14 @@ function mousePressed() {
       missiles.push(new Missile(width / 2, height / 2, angle));
     }
   } else if (gameState === 'GAMEOVER') {
-    gameState = 'START';
+    let btnW = 200;
+    let btnH = 60;
+    let btnX = width / 2 - btnW / 2;
+    let btnY = height / 2 + 100;
+    // 僅在點擊按鈕區域時重新開始
+    if (mouseX > btnX && mouseX < btnX + btnW && mouseY > btnY && mouseY < btnY + btnH) {
+      gameState = 'START';
+    }
   }
 }
 
